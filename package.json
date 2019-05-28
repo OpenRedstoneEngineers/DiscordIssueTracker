@@ -1,0 +1,23 @@
+{
+  "name": "tracky",
+  "version": "1.0.0",
+  "description": "A bot to keep track of issues and whatnot through the use of Discord channels.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OpenRedstoneEngineers/Tracky.git"
+  },
+  "author": "PabloDons <omar.saad0705@gmail.com>",
+  "license": "SEE LICENSE IN LICENSE",
+  "bugs": {
+    "url": "https://github.com/OpenRedstoneEngineers/Tracky/issues"
+  },
+  "homepage": "https://github.com/OpenRedstoneEngineers/Tracky#readme",
+  "dependencies": {
+    "discord.js": "^11.5.0",
+    "winston": "^3.2.1"
+  }
+}
