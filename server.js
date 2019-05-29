@@ -32,6 +32,59 @@ const commands = {
         script:(msg)=>msg.reply('pong'),
         description:'test server connection',
     },
+    setup: {
+        script: (msg) => {
+            if (!serverConfig[msg.guild.id]) {
+                logger.debug('setting up guild for issue tracking!');
+                const tmpConfig = {
+                    issues: [],
+                };
+                msg.guild.createChannel('issue-tracker', {
+                    type:'category',
+                }).then(categoryChannel=>{
+                    tmpConfig.parent = categoryChannel.id;
+
+                    msg.guild.createChannel('issue-archive', {
+                        type: 'text',
+                        topic: 'Backlog of resolved issues. Only Tracky should write here',
+                        parent: categoryChannel,
+                        permissionOverwrites:[],
+                    }).then((chan) => tmpConfig.archive = chan.id).catch(err => { logger.error('at line 51: '+err); });
+    
+                    msg.guild.createChannel('issue-reporting', {
+                        type:'text',
+                        topic:`Report issues here using ${config.cmdPrefix}issue`,
+                        parent:categoryChannel,
+                        permissionOverwrites:[],
+                    }).then((chan) => tmpConfig.tracker = chan.id).catch(err => { logger.error('at line 58: '+err); });
+                }).catch(err => { logger.error('at line 59: '+err); });
+                
+                serverConfig[msg.guild.id] = tmpConfig;
+
+            } else {
+                msg.reply(`Server has already been setup for issue tracking! use "${config.cmdPrefix}deleteTracker" to reset`);
+            }
+        },
+        description: 'setup the server for issue tracking',
+        permission: 'ADMINISTRATOR',
+    },
+    deleteTracker: {
+        script:(msg)=>{
+            if (serverConfig.hasOwnProperty(msg.guild.id)) {
+                const parent = msg.guild.channels.get(serverConfig[msg.guild.id].parent);
+                parent.children.forEach(element => {
+                    element.delete();
+                });
+                parent.delete();
+
+                delete serverConfig[msg.guild.id];
+            } else {
+                msg.reply(`Server is not setup issue tracking! use "${config.cmdPrefix}setup" to setup`);
+            }
+        },
+        description: 'Reset a server set up for issue tracking',
+        permission: 'ADMINISTRATOR',
+    }
 };
 
 const Discord = require('discord.js');
