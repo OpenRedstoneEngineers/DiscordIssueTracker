@@ -24,7 +24,7 @@ const logger = winston.createLogger({
 });
 
 if (!fs.existsSync('serverconfig.json')) {
-    fs.copyFileSync('serverconfig.example.json', 'serverconfig.json');
+    fs.writeFileSync('serverconfig.json', '{}');
 }
 const serverConfig = require('./serverconfig.json');
 const commands = {
