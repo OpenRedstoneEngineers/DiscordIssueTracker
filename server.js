@@ -1,6 +1,6 @@
 const fs = require('fs');
-
 const config = require('./config.json');
+const Argument = require('./lib/argument.js');
 
 const winston = require('winston');
 const myFormat = winston.format.printf(({ level, message, label, timestamp }) => {
@@ -27,10 +27,44 @@ if (!fs.existsSync('serverconfig.json')) {
     fs.writeFileSync('serverconfig.json', '{}');
 }
 const serverConfig = require('./serverconfig.json');
+
 const commands = {
     ping:{
         script:(msg)=>msg.reply('pong'),
         description:'test server connection',
+    },
+    issue:{
+        script:(msg, args)=>{
+            if (!serverConfig.hasOwnProperty(msg.guild.id)) {
+                msg.reply('This server has not been setup for issue tracking');
+                return;
+            }
+            if (!serverConfig[msg.guild.id].tracker === msg.channel.id) {
+                msg.reply('Issues must be submitted in the correct channel: ' + msg.guild.channels.get(serverConfig[msg.guild.id].tracker));
+                return;
+            }
+
+            const issue = {
+                title: args[0],
+                description: args.length > 1 ? args[1] : '',
+            };
+            msg.guild.createChannel('issue-' + serverConfig[msg.guild.id].issues.length + ' ' + issue.title.toLowerCase().replace(/ /gi, '-'), {
+                // Bad injection vulnerability right                                       here ^
+                permissionOverwrites: msg.guild.channels.get(serverConfig[msg.guild.id].tracker).permissionOverwrites,
+                type: 'text',
+                parent: serverConfig[msg.guild.id].parent,
+            }).then((chan) => {
+                chan.overwritePermissions(msg.user, {}, 'creator of the issue should be able to write to it');
+                serverConfig[msg.guild.id].issues.push(chan.id);
+                if (issue.description !== '')
+                    chan.send(issue.description);
+            });
+        },
+        description:'Start a new issue.',
+        args: [
+            new Argument('title', true),
+            new Argument('description', false),
+        ]
     },
 };
 
