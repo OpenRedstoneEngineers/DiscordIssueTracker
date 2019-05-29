@@ -77,12 +77,10 @@ async function handleCommand(msg) {
 }
 
 function updateFiles() {
-    updateFilenames(['serverconfig.json']);
+    updateServerConfig();
 }
 
-function updateFilenames(filenames) {
-    filenames.forEach(element => {
-        fs.writeFileSync(element, JSON.stringify(serverConfig, undefined, 4));
-        logger.info('Updated '+element);
-    });
+function updateServerConfig() {
+    fs.writeFileSync('serverconfig.json', JSON.stringify(serverConfig, undefined, 4));
+    logger.info('Updated serverconfig.json');
 }
