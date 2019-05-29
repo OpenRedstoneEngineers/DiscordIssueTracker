@@ -3,7 +3,7 @@ const config = require('./config.json');
 const Argument = require('./lib/argument.js');
 
 const winston = require('winston');
-const myFormat = winston.format.printf(({ level, message, label, timestamp }) => {
+const myFormat = winston.format.printf(({ level, message, timestamp }) => {
     return `[${timestamp}] [${level}]: ${message}`;
 });
 const logger = winston.createLogger({
@@ -13,12 +13,6 @@ const logger = winston.createLogger({
         myFormat
     ),
     transports: [
-        //
-        // - Write to all logs with level `info` and below to `info.log` and console 
-        // - Write all logs error (and below) to `error.log`.
-        //
-        new winston.transports.File({ filename: 'error.log', level: 'error' }),
-        new winston.transports.File({ filename: 'info.log' }),
         new winston.transports.Console(),
     ]
 });
@@ -38,7 +32,7 @@ const commands = {
             if (!serverConfig[msg.guild.id]) {
                 logger.debug('setting up guild for issue tracking!');
                 const tmpConfig = {
-                    issues: [],
+                    issues: {},
                 };
                 msg.guild.createChannel('issue-tracker', {
                     type:'category',
@@ -99,7 +93,7 @@ const commands = {
 
             const issue = {
                 title: args[0],
-                description: args.length > 1 ? args[1] : '',
+                description: args.slice(1).join(' '),
             };
             msg.guild.createChannel('issue-' + serverConfig[msg.guild.id].issues.length + ' ' + issue.title.toLowerCase().replace(/ /gi, '-'), {
                 // Bad injection vulnerability right                                       here ^
@@ -107,7 +101,10 @@ const commands = {
                 type: 'text',
                 parent: serverConfig[msg.guild.id].parent,
             }).then((chan) => {
-                chan.overwritePermissions(msg.user, {}, 'creator of the issue should be able to write to it');
+                chan.overwritePermissions(msg.member, {
+                    SEND_MESSAGES: true,
+                    READ_MESSAGES: true,
+                }, 'Creator of the issue should be able to write to it.');
                 serverConfig[msg.guild.id].issues.push(chan.id);
                 if (issue.description !== '')
                     chan.send(issue.description);
@@ -116,7 +113,6 @@ const commands = {
         description:'Start a new issue.',
         args: [
             new Argument('title', true),
-            new Argument('description', false),
         ]
     },
 };
@@ -156,6 +152,7 @@ async function handleCommand(msg) {
         } else {
             const sent = await msg.reply('Unknown command!');
             sent.delete(5000);
+            msg.delete(5000);
         }
         return true;
     }
