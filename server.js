@@ -33,7 +33,6 @@ const commands = {
         script:(msg)=>msg.reply('pong'),
         description:'test server connection',
     },
-<<<<<<< HEAD
     setup: {
         script: (msg) => {
             if (!serverConfig[msg.guild.id]) {
@@ -86,8 +85,7 @@ const commands = {
         },
         description: 'Reset a server set up for issue tracking',
         permission: 'ADMINISTRATOR',
-    }
-=======
+    },
     issue:{
         script:(msg, args)=>{
             if (!serverConfig.hasOwnProperty(msg.guild.id)) {
@@ -121,7 +119,6 @@ const commands = {
             new Argument('description', false),
         ]
     },
->>>>>>> issue
 };
 
 const Discord = require('discord.js');
