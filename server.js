@@ -44,15 +44,15 @@ const commands = {
                         topic: 'Backlog of resolved issues. Only Tracky should write here',
                         parent: categoryChannel,
                         permissionOverwrites:[],
-                    }).then((chan) => tmpConfig.archive = chan.id).catch(err => { logger.error('at line 51: '+err); });
+                    }).then((chan) => tmpConfig.archive = chan.id);
     
                     msg.guild.createChannel('issue-reporting', {
                         type:'text',
                         topic:`Report issues here using ${config.cmdPrefix}issue`,
                         parent:categoryChannel,
                         permissionOverwrites:[],
-                    }).then((chan) => tmpConfig.tracker = chan.id).catch(err => { logger.error('at line 58: '+err); });
-                }).catch(err => { logger.error('at line 59: '+err); });
+                    }).then((chan) => tmpConfig.tracker = chan.id);
+                });
                 
                 serverConfig[msg.guild.id] = tmpConfig;
 
@@ -74,7 +74,7 @@ const commands = {
 
                 delete serverConfig[msg.guild.id];
             } else {
-                msg.reply(`Server is not setup issue tracking! use "${config.cmdPrefix}setup" to setup`);
+                msg.reply(`Server has not setup issue tracking! use "${config.cmdPrefix}setup" to setup`);
             }
         },
         description: 'Reset a server set up for issue tracking',
@@ -83,10 +83,10 @@ const commands = {
     issue:{
         script:(msg, args)=>{
             if (!serverConfig.hasOwnProperty(msg.guild.id)) {
-                msg.reply('This server has not been setup for issue tracking');
+                msg.reply('This server has not been setup for issue tracking!');
                 return;
             }
-            if (!serverConfig[msg.guild.id].tracker === msg.channel.id) {
+            if (serverConfig[msg.guild.id].tracker !== msg.channel.id) {
                 msg.reply('Issues must be submitted in the correct channel: ' + msg.guild.channels.get(serverConfig[msg.guild.id].tracker));
                 return;
             }
@@ -97,7 +97,7 @@ const commands = {
             };
             msg.guild.createChannel('issue-' + serverConfig[msg.guild.id].issues.length + ' ' + issue.title.toLowerCase().replace(/ /gi, '-'), {
                 // Bad injection vulnerability right                                       here ^
-                permissionOverwrites: msg.guild.channels.get(serverConfig[msg.guild.id].tracker).permissionOverwrites,
+                permissionOverwrites: msg.guild.channels.get(serverConfig[msg.guild.id].archive).permissionOverwrites,
                 type: 'text',
                 parent: serverConfig[msg.guild.id].parent,
             }).then((chan) => {
@@ -112,7 +112,7 @@ const commands = {
         },
         description:'Start a new issue.',
         args: [
-            new Argument('title', true),
+            'title',
         ]
     },
 };
@@ -142,18 +142,30 @@ async function quit() {
 }
 
 async function handleCommand(msg) {
-    if (msg.content.startsWith(config.cmdPrefix) && msg.content !==  config.cmdPrefix) {
+    if (msg.author.bot) {
+        return false;
+    }
+    if (msg.content.startsWith(config.cmdPrefix)) {
         logger.debug('Recieved command "' + msg.content + '"');
-        const args = msg.content.substring(config.cmdPrefix.length).split(' ');
-        const cmd = args.splice(0, 1)[0];
+        const args = msg.content.slice(config.cmdPrefix.length).split(' ');
+        const cmd = args.shift().toLowerCase();
 
-        if (commands.hasOwnProperty(cmd)) {
-            commands[cmd].script(msg, args);
-        } else {
+        if (!commands.hasOwnProperty(cmd)) {
             const sent = await msg.reply('Unknown command!');
             sent.delete(5000);
             msg.delete(5000);
+            return false;
         }
+        if (!(commands[cmd].hasOwnProperty('permission') && msg.member.hasPermission(commands[cmd].permission))) {
+            const sent = await msg.reply('Permission denied!');
+            sent.delete(5000);
+            msg.delete(5000);
+            return false;
+        }
+        if (commands[cmd].hasOwnProperty('args')) {
+            //TODO: Argument logic to support non-required arguments, types and rest arguments
+        }
+        commands[cmd].script(msg, args);
         return true;
     }
 
