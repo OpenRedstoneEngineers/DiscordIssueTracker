@@ -7,7 +7,7 @@ const myFormat = winston.format.printf(({ level, message, timestamp }) => {
     return `[${timestamp}] [${level}]: ${message}`;
 });
 const logger = winston.createLogger({
-    level: 'info',
+    level: 'debug',
     format: winston.format.combine(
         winston.format.timestamp(),
         myFormat
@@ -32,7 +32,8 @@ const commands = {
             if (!serverConfig[msg.guild.id]) {
                 logger.debug('setting up guild for issue tracking!');
                 const tmpConfig = {
-                    issues: {},
+                    issues: [],
+                    issueCount:0,
                 };
                 msg.guild.createChannel('issue-tracker', {
                     type:'category',
@@ -63,7 +64,7 @@ const commands = {
         description: 'setup the server for issue tracking',
         permission: 'ADMINISTRATOR',
     },
-    deleteTracker: {
+    deletetracker: {
         script:(msg)=>{
             if (serverConfig.hasOwnProperty(msg.guild.id)) {
                 const parent = msg.guild.channels.get(serverConfig[msg.guild.id].parent);
@@ -73,12 +74,38 @@ const commands = {
                 parent.delete();
 
                 delete serverConfig[msg.guild.id];
+
+                msg.reply('Tracker deletion successful');
             } else {
                 msg.reply(`Server has not setup issue tracking! use "${config.cmdPrefix}setup" to setup`);
             }
         },
         description: 'Reset a server set up for issue tracking',
         permission: 'ADMINISTRATOR',
+    },
+    closeissue:{
+        script:(msg, args)=>{
+            if (!serverConfig.hasOwnProperty(msg.guild.id)) {
+                msg.reply('This server has not been setup for issue tracking!');
+                return;
+            }
+            const issueconfig = serverConfig[msg.guild.id].issues.some(el => el.channel === msg.channel.id);
+            
+            if (issueconfig === undefined) {
+                msg.reply('This is not an issue channel!');
+                return;
+            }
+
+            msg.channel.delete();
+            msg.guild.channels.get(serverConfig[msg.guild.id].archive)
+                .send(`issue ${issueconfig.id} deleted! Reason: ${args.join(' ')}\nTitle: ${issueconfig.title}\nDescription: ${issueconfig.description}`);
+            
+        },
+        permission:'MANAGE_CHANNELS',
+        description:'Close an open issue',
+        args: [
+            'reason'
+        ],
     },
     issue:{
         script:(msg, args)=>{
@@ -92,10 +119,11 @@ const commands = {
             }
 
             const issue = {
-                title: args[0],
-                description: args.slice(1).join(' '),
+                title: args.shift(),
+                description: args.join(' '),
+                id: serverConfig[msg.guild.id].issueCount,
             };
-            msg.guild.createChannel('issue-' + serverConfig[msg.guild.id].issues.length + ' ' + issue.title.toLowerCase().replace(/ /gi, '-'), {
+            msg.guild.createChannel('issue-' + (serverConfig[msg.guild.id].issueCount++) + '-' + issue.title.toLowerCase().replace(/ /gi, '-'), {
                 // Bad injection vulnerability right                                       here ^
                 permissionOverwrites: msg.guild.channels.get(serverConfig[msg.guild.id].archive).permissionOverwrites,
                 type: 'text',
@@ -105,11 +133,16 @@ const commands = {
                     SEND_MESSAGES: true,
                     READ_MESSAGES: true,
                 }, 'Creator of the issue should be able to write to it.');
-                serverConfig[msg.guild.id].issues.push(chan.id);
+                logger.debug('New issue created. Title: ' + issue.title);
+                issue.channel = chan.id;
+                serverConfig[msg.guild.id].issues.push(issue);
                 if (issue.description !== '')
                     chan.send(issue.description);
+            }).catch((err)=>{
+                logger.error(err.stack);
             });
         },
+        permission: 'ADMINISTRATOR',
         description:'Start a new issue.',
         args: [
             'title',
@@ -146,9 +179,10 @@ async function handleCommand(msg) {
         return false;
     }
     if (msg.content.startsWith(config.cmdPrefix)) {
-        logger.debug('Recieved command "' + msg.content + '"');
         const args = msg.content.slice(config.cmdPrefix.length).split(' ');
         const cmd = args.shift().toLowerCase();
+        logger.debug('Recieved command "' + msg.content + '"');
+        logger.debug('Command: "'+cmd+'" Arguments: '+args);
 
         if (!commands.hasOwnProperty(cmd)) {
             const sent = await msg.reply('Unknown command!');
@@ -156,7 +190,7 @@ async function handleCommand(msg) {
             msg.delete(5000);
             return false;
         }
-        if (!(commands[cmd].hasOwnProperty('permission') && msg.member.hasPermission(commands[cmd].permission))) {
+        if (commands[cmd].hasOwnProperty('permission') && !msg.member.hasPermission(commands[cmd].permission)) {
             const sent = await msg.reply('Permission denied!');
             sent.delete(5000);
             msg.delete(5000);
