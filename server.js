@@ -89,22 +89,23 @@ const commands = {
                 msg.reply('This server has not been setup for issue tracking!');
                 return;
             }
-            const issueconfig = serverConfig[msg.guild.id].issues.some(el => el.channel === msg.channel.id);
+            const issueIndex = serverConfig[msg.guild.id].issues.findIndex(el => el.channel === msg.channel.id);
             
-            if (issueconfig === undefined) {
+            if (issueIndex === -1) {
                 msg.reply('This is not an issue channel!');
                 return;
             }
+            const issueconfig = serverConfig[msg.guild.id].issues.splice(issueIndex, 1)[0];
 
-            msg.channel.delete();
             msg.guild.channels.get(serverConfig[msg.guild.id].archive)
                 .send(`issue ${issueconfig.id} deleted! Reason: ${args.join(' ')}\nTitle: ${issueconfig.title}\nDescription: ${issueconfig.description}`);
+            msg.channel.delete();
             
         },
         permission:'MANAGE_CHANNELS',
         description:'Close an open issue',
         args: [
-            'reason'
+            'reason',
         ],
     },
     issue:{
@@ -123,26 +124,25 @@ const commands = {
                 description: args.join(' '),
                 id: serverConfig[msg.guild.id].issueCount,
             };
-            msg.guild.createChannel('issue-' + (serverConfig[msg.guild.id].issueCount++) + '-' + issue.title.toLowerCase().replace(/ /gi, '-'), {
-                // Bad injection vulnerability right                                       here ^
+            msg.guild.createChannel('issue-' + (serverConfig[msg.guild.id].issueCount++) + '-' + issue.title, {
+                // Bad injection vulnerability right                                        here ^
                 permissionOverwrites: msg.guild.channels.get(serverConfig[msg.guild.id].archive).permissionOverwrites,
                 type: 'text',
                 parent: serverConfig[msg.guild.id].parent,
-            }).then((chan) => {
-                chan.overwritePermissions(msg.member, {
+            }).then((issueChannel) => {
+                issueChannel.overwritePermissions(msg.member, {
                     SEND_MESSAGES: true,
                     READ_MESSAGES: true,
                 }, 'Creator of the issue should be able to write to it.');
                 logger.debug('New issue created. Title: ' + issue.title);
-                issue.channel = chan.id;
+                issue.channel = issueChannel.id;
                 serverConfig[msg.guild.id].issues.push(issue);
                 if (issue.description !== '')
-                    chan.send(issue.description);
+                    issueChannel.send(issue.description);
             }).catch((err)=>{
                 logger.error(err.stack);
             });
         },
-        permission: 'ADMINISTRATOR',
         description:'Start a new issue.',
         args: [
             'title',
